@@ -3,7 +3,7 @@ import 'dart:typed_data';
 
 import 'package:strings/strings.dart';
 
-class ChangeConf {
+class ChangeBootConf {
   late File defaultsConf;
   late List<String> defaultLines;
 
@@ -14,7 +14,7 @@ class ChangeConf {
 
   String get prevBootAsString => _prevBootStr;
 
-  Future<void> _setConf() async {
+  Future<void> _set() async {
     /*   if (defaultLines.length > 1 ) {
         if (defaultLines.where((element) => !element.contains(':')).length > 1) {
           defaultLines.removeAt(defaultLines.indexWhere((element) => !element.contains(':')));
@@ -26,7 +26,7 @@ class ChangeConf {
     await defaultsConf.writeAsString(join(defaultLines, '\n'));
   }
 
-  Future<void> readConf(bool to_use_efi, String efi_path) async {
+  Future<void> read(bool to_use_efi, String efi_path) async {
     use_efi = to_use_efi;
     if (!efi_path.endsWith('/')) {
       efi_path += '/';
@@ -37,7 +37,7 @@ class ChangeConf {
     } else {
       var conf = File(efi_path + 'EFI/refind/refind.conf');
       var confLines = await conf.readAsLines();
-      if (!(confLines.last == 'include refind-default-selections.conf')) {
+      if (!(confLines.last == 'include refind-default-selections.conf' || confLines.elementAt(confLines.length-2) == 'include refind-default-selections.conf')) {
         confLines.add('include refind-default-selections.conf');
       }
       await conf.writeAsString(join(confLines, '\n'));
@@ -63,7 +63,7 @@ class ChangeConf {
       prevBoot.writeAsBytes(bytes, flush: true);
     } else {
       defaultLines.add('default_selection "$s"');
-      _setConf();
+      _set();
     }
   }
 
@@ -73,11 +73,11 @@ class ChangeConf {
           'use-efi can only be used to set a substring default and get the current substring');
     } else {
       defaultLines.add('default_selection $n');
-      _setConf();
+      _set();
     }
   }
 
-  List<String> readDefaultSelection() {
+  List<String> get() {
     if (use_efi) {
       return [_prevBootStr];
     }
@@ -92,11 +92,52 @@ class ChangeConf {
     _setConf();
   } */
 
-  void clearDefaultSelections() {
+  void clear() {
     defaultLines.clear();
-    _setConf();
+    _set();
   }
 }
+
+class ChangeSettingsConf {
+  late File settingsConf;
+  late List<String> settingsLines;
+
+  Future<void> _set() async {
+    await settingsConf.writeAsString(join(settingsLines, '\n'));
+  }
+
+  Future<void> read(String efi_path) async {
+    if (!efi_path.endsWith('/')) {
+      efi_path += '/';
+    }
+    var conf = File(efi_path + 'EFI/refind/refind.conf');
+    var confLines = await conf.readAsLines();
+    if (!(confLines.last == 'include refind-settings.conf' || confLines.elementAt(confLines.length-2) == 'include refind-settings.conf')) {
+      confLines.add('include refind-settings.conf');
+    }
+    await conf.writeAsString(join(confLines, '\n'));
+    settingsConf =
+        File(efi_path + 'EFI/refind/refind-settings.conf');
+    try {
+      await settingsConf.create();
+    } catch (e) {
+      stderr.writeln('Non-fatal \n$e');
+    }
+    settingsLines = await settingsConf.readAsLines();
+  }
+  
+  List<String> get() {
+    return settingsLines.isNotEmpty
+        ? settingsLines
+        : ['There are no settings overridden by this program, but refind.conf may have some.'];
+  }
+
+  void clear() {
+    settingsLines.clear();
+    _set();
+  }
+    
+  }
 
 /*
 class Conf {

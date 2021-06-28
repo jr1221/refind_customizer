@@ -4,16 +4,22 @@ import 'package:args/command_runner.dart';
 
 void main(List<String> args) async {
   exitCode = 0;
-  var cRun = CommandRunner('rf-custom', 'Change rEFInd defaults');
-  var c = ChangeConf();
-  cRun.addCommand(ChangeBoot(c));
+  var cRun = CommandRunner('rf-custom', 'Change rEFInd defaults')
+    ..argParser.addOption('efi-path',
+        abbr: 'p',
+        help: 'Specify the path to the EFI directory, defaults to /boot/efi/',
+        valueHelp: '/boot/',
+        defaultsTo: '/boot/efi/');
+  cRun
+    ..addCommand(ChangeBoot(ChangeBootConf()))
+    ..addCommand(ChangeSettings(ChangeSettingsConf()));
   await cRun.run(args);
 }
 
 class ChangeBoot extends Command<void> {
-  late ChangeConf confChange;
+  late ChangeBootConf confChange;
 
-  ChangeBoot(ChangeConf c) {
+  ChangeBoot(ChangeBootConf c) {
     confChange = c;
     argParser
       ..addOption('number',
@@ -23,13 +29,8 @@ class ChangeBoot extends Command<void> {
       ..addOption('substring',
           abbr: 's',
           help:
-              'Default to the first matching string of any boot description, separate multiple strings by commas',
+                'Default to the first matching string of any boot description, separate multiple strings by commas',
           valueHelp: 'boot/vmlinuz-5.8.0-22-generic')
-      ..addOption('efi-path',
-          abbr: 'p',
-          help: 'Specify the path to the EFI directory, defaults to /boot/efi/',
-          valueHelp: '/boot/',
-          defaultsTo: '/boot/efi/')
       ..addFlag('get',
           abbr: 'g',
           help: 'Get the current selection configuration',
@@ -45,9 +46,9 @@ class ChangeBoot extends Command<void> {
           help: 'Clear all set time rules, leaving other switch rules in place',
           defaultsTo: false,
           negatable: false) */
-      ..addFlag('remove-all',
-          abbr: 'r',
-          help: 'Remove all rules, previously booted OS will be default',
+      ..addFlag('clear-all',
+          abbr: 'c',
+          help: 'Clear all rules, previously booted OS will be default',
           defaultsTo: false,
           negatable: false);
   }
@@ -65,8 +66,8 @@ class ChangeBoot extends Command<void> {
   @override
   Future<void> run() async {
     assert(argResults != null);
-    await confChange.readConf(
-        argResults!.wasParsed('use-efi'), argResults!['efi-path']);
+    await confChange.read(
+        argResults!.wasParsed('use-efi'), globalResults!['efi-path']);
     if (argResults!['number'] != null) {
       confChange.setDefaultNumberSelection(int.parse(argResults!['number']));
       return;
@@ -76,7 +77,7 @@ class ChangeBoot extends Command<void> {
       return;
     }
     if (argResults!.wasParsed('get')) {
-      confChange.readDefaultSelection().forEach((element) {
+      confChange.get().forEach((element) {
         stdout.writeln(element);
       });
       return;
@@ -85,8 +86,52 @@ class ChangeBoot extends Command<void> {
       confChange.clearDefaultSelectionTimes();
       return;
     } */
-    if (argResults!.wasParsed('remove-all')) {
-      confChange.clearDefaultSelections();
+    if (argResults!.wasParsed('clear-all')) {
+      confChange.clear();
+      return;
+    }
+  }
+}
+
+class ChangeSettings extends Command<void> {
+  late ChangeSettingsConf confChange;
+
+  ChangeSettings(ChangeSettingsConf c) {
+    confChange = c;
+    argParser
+      ..addFlag('get',
+          abbr: 'g',
+          help: 'Get the current selection configuration',
+          defaultsTo: false,
+          negatable: false)
+      ..addFlag('clear-all',
+          abbr: 'c',
+          help: 'Clear all rules, previously booted OS will be default',
+          defaultsTo: false,
+          negatable: false);
+  }
+
+  @override
+  final String description = 'Change rEFInd settings, such as timeout.';
+
+  @override
+  final String summary = 'Change rEFInd settings';
+
+  @override
+  final String name = 'settings';
+
+  @override
+  Future<void> run() async {
+    assert(argResults != null);
+    await confChange.read(globalResults!['efi-path']);
+    if (argResults!.wasParsed('get')) {
+      confChange.get().forEach((element) {
+        stdout.writeln(element);
+      });
+      return;
+    }
+    if (argResults!.wasParsed('clear-all')) {
+      confChange.clear();
       return;
     }
   }
